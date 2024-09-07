@@ -1,0 +1,161 @@
+local json = require "ldtk-import.utils.json"
+local entities_util = require "ldtk-import.utils.entities"
+local levels_util = require "ldtk-import.utils.levels"
+
+local M = {}
+
+local function save_to_file(file_directory, file_name, file_content, file_format)
+    local new_file_path = file_directory .. file_name .. "." .. file_format
+
+    -- Open the file in write mode
+    local file, err = io.open(new_file_path, "w")
+
+    if not file then
+        print("Error generating file: " .. err)
+        return false
+    end
+
+    file:write(file_content)
+
+    file:close()
+
+    print("File successfully generated: " .. new_file_path)
+end
+
+local previous_levels = {}
+
+-- Function to compare two tables
+local function compare_tables(t1, t2)
+    if t1 == t2 then return true end
+    if type(t1) ~= "table" or type(t2) ~= "table" then return false end
+
+    for k, v in pairs(t1) do
+        if type(v) == "table" then
+            if not compare_tables(v, t2[k]) then
+                return false
+            end
+        else
+            if v ~= t2[k] then
+                return false
+            end
+        end
+    end
+
+    for k in pairs(t2) do
+        if t1[k] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
+
+local function ends_with(str, ending)
+    return ending == '' or str:sub(- #ending) == ending
+end
+
+
+-- Function to find the first file with a specific extension
+local function find_file_with_extension(dir, extension)
+    local p = editor.execute("ls " .. dir)
+    if not p then
+        return nil
+    end
+    print(p:lines())
+
+    for file in p:lines() do
+        if file:match("%." .. extension .. "$") then
+            return file -- Return the first matching file
+        end
+    end
+
+    return nil -- No matching file found
+end
+
+local function process_levels(levels, path, generate_modules)
+    -- Get the directory path
+    local directory = string.match(path, "(.*/)")
+    local directory_path = "." .. directory
+
+    -- Generate modules
+    if generate_modules then
+        local entity_layers = entities_util.collect_entity_layers(levels)
+
+        local unique_identifiers = {}
+        local result = {}
+        for _, level in ipairs(levels) do
+            local identifier = string.lower(level.identifier)
+            if identifier and not unique_identifiers[identifier] then
+                -- Mark the identifier as seen
+                unique_identifiers[identifier] = true
+                -- Add the identifier to the result table
+                table.insert(result, identifier)
+            end
+        end
+
+        for _, layer in ipairs(entity_layers) do
+            local entity_file = entities_util.generate_entities(levels, layer)
+
+            local serialized = entities_util.serialize_table(entity_file, result)
+            save_to_file(directory_path, string.lower(layer), serialized, "lua")
+        end
+    else
+        --print(find_file_with_extension(path:gsub("/[^/]+$", ""), "tilesource"))
+
+        -- Generate tilemaps
+        for _, level in ipairs(levels) do
+            local level_name = string.lower(level.identifier)
+
+            save_to_file(directory_path, level_name, levels_util.format_tilemap_data(level), "tilemap")
+
+            --[[if not previous_levels[level_name] or not compare_tables(previous_levels[level_name], level) then
+                previous_levels[level_name] = level
+            else
+                print(level_name, " already exists and didn't change.")
+            end]] --
+        end
+    end
+end
+
+function M.get_commands()
+    return {
+        {
+            label = "Generate Tilemaps",
+            locations = { "Assets" },
+            query = {
+                selection = { type = "resource", cardinality = "one" }
+            },
+            active = function(opts)
+                local path = editor.get(opts.selection, "path")
+                return ends_with(path, ".ldtk")
+            end,
+            run = function(opts)
+                local file_content = editor.get(opts.selection, "text")
+                local path = editor.get(opts.selection, "path")
+                local levels_json = json.decode(file_content)
+
+                process_levels(levels_json.levels, path, false)
+            end
+        },
+        {
+            label = "Generate Entities Module",
+            locations = { "Assets" },
+            query = {
+                selection = { type = "resource", cardinality = "one" }
+            },
+            active = function(opts)
+                local path = editor.get(opts.selection, "path")
+                return ends_with(path, ".ldtk")
+            end,
+            run = function(opts)
+                local file_content = editor.get(opts.selection, "text")
+                local path = editor.get(opts.selection, "path")
+                local levels_json = json.decode(file_content)
+                process_levels(levels_json.levels, path, true)
+            end
+        }
+    }
+end
+
+return M
