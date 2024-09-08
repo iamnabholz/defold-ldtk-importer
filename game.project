@@ -12,7 +12,7 @@ height = 640
 input_method = HiddenInputField
 
 [project]
-title = ldtk to defold
+title = LDtk Importer
 
 [graphics]
 default_texture_min_filter = nearest
