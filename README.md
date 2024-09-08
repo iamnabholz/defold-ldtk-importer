@@ -1,6 +1,4 @@
-# LDtk importer for Defold
-
-## WIP
+# LDtk importer for Defold (WIP)
 
 ## Installation
 You can use the LDtk importer in your own project by adding this project as a [Defold library dependency](http://www.defold.com/manuals/libraries/). Open your game.project file and in the dependencies field under project add:
@@ -19,4 +17,4 @@ Getting started with the LDtk importer is easy:
 ## Setup
 In LDtk you can create a new value that holds the path for your `.tilesource` file in Defold, needed for every tilemap
 
-- Create a new `string` property called `tileset`, and as a value add the path for your `.tilesource` file from your project tree
+- Create a new `string` property called `tilesource`, and as a value add the path for your `.tilesource` file from your project tree
